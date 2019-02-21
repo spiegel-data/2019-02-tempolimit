@@ -1,0 +1,264 @@
+---
+title: "Autobahnen: Zusammenhang zwischen Tempolimit und Unfällen"
+output:
+  html_notebook:
+    css: style.css
+    code_folding: hide
+    toc: true
+    toc_float: true
+    number_sections: true
+---
+
+```{r}
+## install and load needs, if not yet present
+# install.packages("needs")
+# library(needs)
+
+# packages used in this markdown document
+needs(tidyverse, sf)
+```
+
+
+
+# Übersicht über die Daten
+
+## Autobahnabschnitte und Geschwindigkeitsbeschränkungen
+Die Geodaten zu Autobahnen und Tempolimits stammen von **OpenStreeMap (OSM)**. Zwar werden die Daten nach einem wikipediaähnlichen Community-Prinzip gepflegt, sind in Deutschland aber von sehr großer Präzision und Vollständigkeit.
+
+Hier ein Vergleich der OSM-Daten (Stand 18.02.2019) mit Angaben der [Bundesanstalt für Straßenwesen](https://www.bast.de/BASt_2017/DE/Verkehrstechnik/Publikationen/Download-Publikationen/Downloads/V1-BAB-Tempolimit-2015.pdf?__blob=publicationFile&v=5) (Stand: 1. Quartal 2015).
+```{r}
+data_OSM_filtered = st_read("data/processed/OSM_autobahnnetz.geojson", quiet = T) %>% 
+	st_transform(25832) %>% 
+	mutate(length = as.double(st_length(.)))
+
+limit_categories = data_OSM_filtered %>%
+	as.data.frame() %>%
+	select(-geometry) %>% 
+	mutate(maxspeed_group = case_when(
+		maxspeed == "none" | is.na(maxspeed) ~ "unlimited",
+		maxspeed %in% c("120", "130", "140") ~ "limit_120_130_140",
+		maxspeed %in% c("signals", "variable") ~ "dynamic",
+		T ~ "limit_100_and_below"
+	)) %>% 
+	group_by(maxspeed_group) %>% 
+	summarise(length = sum(length) / 1000) %>% 
+	mutate(share = length / sum(length)) %>% 
+	arrange(-length)
+
+# disabeling scientific notation
+options(scipen = 999)
+
+limit_categories_comparison = limit_categories %>% 
+	select(tempolimit = maxspeed_group, share) %>% 
+	mutate(source = "OSM") %>% 
+	add_row(tempolimit = "unlimited", share = 0.704, source = "bast") %>% 
+	add_row(tempolimit = "limit_120_130_140", share = 0.125, source = "bast") %>% 
+	add_row(tempolimit = "limit_100_and_below", share = 0.083, source = "bast") %>% 
+	add_row(tempolimit = "dynamic", share = 0.088, source = "bast")
+
+ggplot(limit_categories_comparison, aes(x = fct_rev(tempolimit), y = share, fill = source, label = paste0(round(share*100,1), "%"))) +
+	geom_col(position = "dodge") +
+	geom_text(position = position_dodge(width = 0.9), hjust = 0.5, vjust = -0.4) +
+	labs(x="", y="", title = "Tempolimits auf Autobahnen - nach Datenquelle", subtitle = "Anteil Streckenkilometer",  fill= "Quelle")
+```
+
+
+
+## Unfalldaten
+
+Stammen aus dem **[Unfallatlas der statistischen Ämter des Bundes und der Länder](https://unfallatlas.statistikportal.de/_opendata.html)**. Enthalten sind alle polizeilich erfassten Straßenunfälle aus dem Jahr 2017, mit Ausnahme der Bundesländer Nordrhein-Westfalen, Berlin, Thüringen und Mecklenburg-Vorpommern.
+
+Zu den einzelnen Unfällen liegen folgende Informationen vor:
+
+- Unfallart (Zusammenstoß, Abkommen von der Fahrbahn,...)
+- Unfallkategorie (Unfall mit Getöteten/Schwerverletzten/Leichtverletzten)
+- Unfalltyp (Fahrunfall, Abbiegeunfall,...)
+- Lichtverhältnisse (Tageslicht, Dämmerung, Dunkelheit)
+- Straßenzustand (trocken, nass, winterglatt)
+- Wochentag und Uhrzeit
+- Beteiligter (Rad, PKW, Fußgänger, Kraftrad)
+
+```{r}
+unfaelle_2017_autobahn = st_read("data/processed/unfaelle_2017_autobahn.gpkg", quiet = T) %>% st_set_crs(25832)
+```
+
+Im Jahr 2017 wurden insgesamt 195.229 Unfälle erfasst.
+`r nrow(unfaelle_2017_autobahn)` davon konnten einem Autobahnabschnitt zugeordnet werden (ob der Unfall auf einer Autobahn stattgefunden hat, wird nicht gesonders ausgewiesen. Wir zählen hier alle Unfälle, deren Koordinaten maximal 10 Meter von einer Autobahn entfernt sind)
+
+
+
+## Verkehrsdichte
+Zur Verkehrsdichte liegen Daten aus der [**automatischen Verkehrszählung 2017**](https://www.bast.de/BASt_2017/DE/Verkehrstechnik/Fachthemen/v2-verkehrszaehlung/Aktuell/zaehl_aktuell_node.html) vor. An insgesamt 950 Autobahn-Zählstellen bundesweit wurde dort u.A. die Zahl der PKW pro Tag und die mittlere stündliche Verkehrsstärke tags/nachts gemessen. Für die Analyse haben wir jedem Autobahnabschnitt die Verkehrsdichte der nächstgelegenen Zählstelle zugeordnet.
+```{r message = FALSE, warning = FALSE}
+unfaelle_pro_abschnitt = read_csv("data/processed/unfaelle_pro_abschnitt.csv")
+```
+
+
+
+# Passieren auf Autobahnabschnitten ohne Tempolimit mehr Unfälle?
+```{r}
+lenght_per_type = data_OSM_filtered %>% 
+	as_data_frame() %>% 
+	select(-geometry) %>% 
+	filter(!is.na(maxspeed)) %>% 
+	mutate(tempolimit = if_else(maxspeed == "none" | is.na(maxspeed), "ohne Tempolimit", "mit Tempolimit")) %>% 
+	group_by(tempolimit) %>% 
+	summarise(total_length = sum(length))
+
+accidents_per_type = unfaelle_2017_autobahn %>% 
+	as_data_frame() %>% 
+	select(-geom) %>% 
+	filter(!is.na(maxspeed)) %>% 
+	mutate(tempolimit = if_else(maxspeed == "none" | is.na(maxspeed), "ohne Tempolimit", "mit Tempolimit")) %>% 
+	count(tempolimit) %>% 
+	left_join(lenght_per_type, by = "tempolimit") %>%
+	mutate(accidents_per_1000_km = n / total_length * 1000)
+
+ggplot(accidents_per_type) +
+	geom_col(aes(tempolimit, accidents_per_1000_km, fill = fct_rev(tempolimit)), show.legend = F) +
+	geom_text(aes(tempolimit, accidents_per_1000_km, label = round(accidents_per_1000_km,2)), vjust = -0.4) +
+	labs(x = "", y = "Unfälle pro 1000 Kilometer", title = "Zahl der Unfälle pro Streckenkilometer Autobahn", subtitle = "Angaben für 12 Bundesländer aus dem Jahr 2017")
+```
+> Berücksichtigt man nur die Zahl der Unfälle pro Streckenkilometer, so passieren auf Strecken ohne Tempolimit überraschenderweise weniger Unfälle. Die Verkehrsdichte auf Abschnitten mit Tempolimit ist allerdings deutlich höher (teilwiese ist sie ja auch der Grund der für das Tempolimit). Eine bessere Vergleichsgröße wäre die Zahl der Unfälle pro gefahrenem Kilometer --> siehe nächste Grafik.
+
+
+```{r}
+accidents_per_type_with_traffic = unfaelle_pro_abschnitt %>% 
+	mutate(tempolimit = if_else(maxspeed == "none" | is.na(maxspeed), "ohne Tempolimit", "mit Tempolimit")) %>% 
+	group_by(tempolimit) %>% 
+	summarise(
+		total_km = sum(yearly_km_in_section),
+		accidents_tötlich = sum(tödlich, na.rm = T),
+		accidents_schwerverl. = sum(schwerverletzt, na.rm = T),
+		accidents_leichtverl. = sum(leichtverletzt, na.rm = T),
+		accidents_total = sum(tödlich, schwerverletzt, leichtverletzt, na.rm = T)
+	) %>% 
+	mutate(accidents_tötlich_per_mrd_km = accidents_tötlich / total_km * 1000000000) %>% 
+	mutate(accidents_schwerverl._per_mrd_km = accidents_schwerverl. / total_km * 1000000000) %>% 
+	mutate(accidents_leichtverl._per_mrd_km = accidents_leichtverl. / total_km * 1000000000) %>% 
+	mutate(accidents_total_per_mrd_km = accidents_total / total_km * 1000000000) %>% 
+	gather(art, anzahl, ends_with("mrd_km"))
+
+ggplot(accidents_per_type_with_traffic %>% filter(!is.na(tempolimit)) %>% filter(art == "accidents_total_per_mrd_km")) +
+	geom_col(aes(tempolimit, anzahl, fill = fct_rev(tempolimit)), show.legend = F) +
+	geom_text(aes(tempolimit, anzahl, label = round(anzahl, 1)), vjust = -0.4) +
+	labs(x = "", y = "Unfälle pro Mrd. km", title = "Zahl der Unfälle pro Mrd. gefahrenen Kilometern Autobahn", subtitle = "Angaben für 12 Bundesländer aus dem Jahr 2017")
+```
+> **Auch unter Berücksichtigung der gefahrenen Kilometer ist die Zahl der Unfälle auf Abschnitten ohne Tempolimit überraschenderweise geringer.** Allerdings hat auch der Vergleich hier noch einen Haken. **Es ist davon auszugehen, dass eher gefährliche Abschnitte (kurvig, hohes Verkehrsaufkommen,...) häufiger begrenzt sind und die Zahl der Unfälle schon deshalb hier höher liegt.**
+
+
+# Passieren auf Autobahnabschnitten mit Tempolimit schwerere Unfälle?
+```{r}
+accidents_per_type_severity = unfaelle_2017_autobahn %>% 
+	as_data_frame() %>% 
+	select(-geom) %>% 
+	filter(!is.na(maxspeed)) %>% 
+	mutate(tempolimit = if_else(maxspeed == "none" | is.na(maxspeed), "ohne Tempolimit", "mit Tempolimit")) %>% 
+	count(tempolimit, UKATEGORIE) %>% 
+	spread(UKATEGORIE, n) %>%
+	rename(tödlich = `1`, schwerverletzt = `2`, leichtverletzt = `3`) %>%
+	mutate(anteil_tödlich = tödlich / sum(tödlich)) %>% 
+	mutate(anteil_schwerverletzt = schwerverletzt / sum(schwerverletzt)) %>% 
+	mutate(anteil_leichtverletzt = leichtverletzt / sum(leichtverletzt)) %>% 
+	left_join(lenght_per_type, by = "tempolimit") %>%
+	mutate(anteil_km = total_length / sum(total_length)) %>% 
+	gather(art, anteil, starts_with("anteil")) 
+
+ggplot(accidents_per_type_severity) +
+	geom_col(aes(art, anteil, fill = fct_rev(tempolimit))) + 
+	geom_text(aes(art, anteil, label = paste0(round(anteil*100), "%"))) +
+	labs(x = "", y = "", fill = "", title = "Unfallkategorie nach Streckentyp", 
+		 subtitle = "Wie viel Prozent der tödlichen Unfälle (etc.) auf Abschnitten mit/ohne Tempolimit passieren")
+```
+> Obwohl laut OSM-Daten auf 68% der Autobahnabschnitte kein Tempolimit gilt, entfallen 73% der tötlichen Unfälle in diese Kategorie. Der Anteil der Leichtverletzten hingegen ist hier deutlich geringer. **Wenn auf Abschnitten ohne Tempolimit ein Unfall geschieht, so kommt es seltener zu leichten Verletzungen, aber häufiger zu Todesfällen**.
+
+
+```{r}
+ggplot(
+	accidents_per_type_with_traffic %>% 
+		filter(art != "accidents_total_per_mrd_km") %>% 
+		mutate(art = str_replace_all(art, "accidents_","")) %>% 
+		mutate(art = str_replace_all(art, "_per_mrd_km",""))) +
+	geom_col(aes(art, anzahl, fill = fct_rev(tempolimit), group = tempolimit), position = "dodge") +
+	geom_text(aes(art, anzahl, label = round(anzahl, 2), group = tempolimit), vjust = -0.4, position = position_dodge(0.9)) +
+	labs(x = "", y = "Unfälle pro Mrd. km", title = "Zahl der Unfälle pro Mrd. gefahrenen Kilometern Autobahn", subtitle = "Angaben für 12 Bundesländer aus dem Jahr 2017", fill = "")
+
+
+accidents_per_mrd_with = accidents_per_type_with_traffic %>% 
+	filter(tempolimit == "mit Tempolimit" & art == "accidents_tötlich_per_mrd_km") %>% 
+	pull(anzahl) %>% 
+	round(2)
+
+accidents_per_mrd_without = accidents_per_type_with_traffic %>% 
+	filter(tempolimit == "ohne Tempolimit" & art == "accidents_tötlich_per_mrd_km") %>% 
+	pull(anzahl) %>% 
+	round(2)
+```
+
+> Sauberer wird der Vergleich auch hier durch die Berücksichtigung der gefahrenen Kilometer. **Während ohne Tempolimit `r accidents_per_mrd_with` tödliche Unfälle pro Mrd. Kilometer passieren, liegt dieser Wert in Abschnitten ohne Tempolimit bei `r accidents_per_mrd_without`, also knapp 75% höher**. Auch bei Schwerverletzten passieren pro gefahrenem Kilometer auf Abschnitten ohne Tempolimit knapp 20% mehr Unfälle.
+
+
+```{r}
+# Zahlen aus DESTATIS 2017, S. 23
+deaths_per_accident = 409 / 365
+
+# Zahlen aus DESTATIS 2017, S. 6
+km_total_2017 = 246
+
+model_accidents = 246 * accidents_per_mrd_with
+model_deaths = model_accidents * deaths_per_accident
+```
+
+> Laut offiziellen Zahlen ([DESTATIS 2017](https://www.destatis.de/DE/Publikationen/Thematisch/TransportVerkehr/Verkehrsunfaelle/VerkehrsunfaelleZeitreihenPDF_5462403.pdf?__blob=publicationFile)) gab es im Jahr 2017 bundesweit 356 tödliche Unfälle (mit 409 Todesopfern). Unter der Annahme, dass sich durch die Einführung eines Tempolimits die Zahl der tödlichen Unfälle pro Mrd. Kilometer wie in der Datenauswertung auf 0,96 senken ließe, würde dies zu einer Reduzierung der Zahl der tödlichen Unfälle auf `r round(model_accidents)` (mit `r round(model_deaths)` Todesopfer) führen. **Anders ausgedrückt: Alleine im Jahr 2017 hätten sich `r 409 - round(model_deaths)` Todesopfer durch die Einführung eines Autobahn-Tempolimits verhindern lassen.** 
+
+
+# Plausibilitätsprüfung
+
+## Quervergleich mit Primärquellen
+Laut DESTATIS 2017 (S. 222) lag die Zahl der Unfälle auf Autobahnen pro Mrd. gefahrene Kilometer im Jahr 2017 insgesamt bei 85, in unserer Auswertung bei 76.
+
+Die Zahl der tödlichen Unfälle pro Mrd. Kilomter liegt laut DESTATIS 2017 (S. 222) bei 1,7, bei uns bei 1,4.
+
+Die jährliche Fahrleistung auf Autobahnen liegt laut DESTATIS 2017 (S. 215) bei 246 Mrd. Kilometer, mit unseren Grundlagendaten (für alle Bundesländer) ergeben sich 251 Mrd. km.
+
+> Der Blick in andere Primärquellen zeigt nur geringe Abweichungen und unterstützt so die Plausibilität der Auswertung. Kleinere Abweichungen warem schon deshalb zu erwarten, da nur für 12 der 16 Bundesländer Daten vorliegen und verschieden Geodaten verwendet werden (OSM/Bast).
+
+
+## Beeinflussung durch Lichtverhältnisse ausschließen
+```{r fig.asp = 0.5}
+accidents_light_conditions = unfaelle_2017_autobahn %>% 
+	as.data.frame() %>% 
+	select(-geom) %>% 
+	filter(UKATEGORIE == "1") %>% 
+	mutate(tempolimit = if_else(maxspeed == "none" | is.na(maxspeed), "ohne Tempolimit", "mit Tempolimit")) %>% 
+	mutate(LICHT = as.character(LICHT)) %>% 
+	mutate(LICHT = if_else(LICHT == "0", "Tageslicht", LICHT)) %>%
+	mutate(LICHT = if_else(LICHT == "1", "Dämmerung", LICHT)) %>%
+	mutate(LICHT = if_else(LICHT == "2", "Dunkelheit", LICHT)) %>%
+	count(tempolimit, LICHT)
+
+ggplot(accidents_light_conditions) +
+	geom_col(aes(tempolimit, n, fill = LICHT), position = "fill") +
+	labs(x = "", y ="", title = "Anteil tödlicher Unfälle nach Tempolimit und Lichtverhältnissen")
+```
+
+
+## Beeinflussung durch Straßenverhältnisse ausschließen
+```{r fig.asp = 0.5}
+accidents_road_conditions = unfaelle_2017_autobahn %>% 
+	as.data.frame() %>% 
+	select(-geom) %>% 
+	filter(UKATEGORIE == "1") %>% 
+	mutate(tempolimit = if_else(maxspeed == "none" | is.na(maxspeed), "ohne Tempolimit", "mit Tempolimit")) %>% 
+	mutate(STRZUSTAND = as.character(STRZUSTAND)) %>% 
+	mutate(STRZUSTAND = if_else(STRZUSTAND == "0", "trocken", STRZUSTAND)) %>%
+	mutate(STRZUSTAND = if_else(STRZUSTAND == "1", "nass/feucht/schlüpfrig", STRZUSTAND)) %>%
+	mutate(STRZUSTAND = if_else(STRZUSTAND == "2", "winterglatt", STRZUSTAND)) %>%
+	count(tempolimit, STRZUSTAND)
+
+ggplot(accidents_road_conditions) +
+	geom_col(aes(tempolimit, n, fill = STRZUSTAND), position = "fill") +
+	labs(x = "", y ="", title = "Anteil tödlicher Unfälle nach Tempolimit und Straßenverhältnissen")
+```
+
+> Vergleich man Straßenzustand und Lichtverhältniss bei den tötlichen Unfällen mit bzw. ohne Tempolimit, so zeigen sich nur sehr geringe Unterschiede. Es kann folglich ausgeschlossen werden, dass die ermittelte Zahl der tötlichen Unfällen pro Mrd. gefahrener Kilometer auf Abschnitten mit/ohne Tempolimit auf einer verzerrten durch eine Verzerrung der Grundgesamtheit zu erklären ist.

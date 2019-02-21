@@ -1,0 +1,144 @@
+---
+title: "Autobahnen: Zusammenhang zwischen Tempolimit und Unfällen"
+output:
+  html_notebook:
+    css: style.css
+---
+
+```{r}
+## install and load needs, if not yet present
+# install.packages("needs")
+# library(needs)
+
+# packages used in this markdown document
+needs(tidyverse, sf, osmdata, rmapshaper)
+```
+
+
+# Autobahnabschnitte und Geschwindigkeitsbeschränkungen
+Code zum Download der Rohdaten von OSM sowie zum Beschneiden der Geodaten anhand der Staatsgrenze.
+Das Ergebnis der Operation wird unter "/data/processed/OSM_autobahnnetz.geojson" abgelegt.
+```{r}
+# download all highways within boundary box
+bb_GER = getbb('Deutschland', featuretype = "country")
+
+data_OSM = opq(bbox = bb_GER, timeout = 600) %>%
+    add_osm_feature(
+    	key = "highway",
+    	value = "motorway") %>%
+    osmdata_sf()
+
+data_OSM_lines = data_OSM$osm_lines
+
+# keep only necessary columns
+data_OSM_filtered = data_OSM_lines %>%
+	mutate_if(is.factor, as.character) %>%
+	select(osm_id, ref, name, network, operator, FIXME, maxspeed, maxspeed.variable, maxspeed.type.conditional, temporary.maxspeed, lanes)
+
+# clip by simplified bounding box
+bb_GER_polygon = st_read("data/raw/VG250_STA.shp") %>%
+ 	filter(GF == 4) %>%
+ 	st_transform(4326) %>%
+ 	ms_simplify(keep = 0.01)
+
+data_OSM_filtered = data_OSM_filtered %>%
+	st_intersection(bb_GER_polygon) %>%
+ 	select(osm_id:lanes)
+
+file.remove("data/processed/OSM_autobahnnetz.geojson")
+st_write(data_OSM_filtered, "data/processed/OSM_autobahnnetz.geojson")
+```
+
+
+
+# Unfalldaten
+Code zum Ermittlung der Unfälle, die auf Autobahnen stattgefunden haben.
+Das Ergebnis der Operation wird unter "/data/processed/unfaelle_2017_autobahn.gpkg" abgelegt.
+```{r eval = FALSE}
+# downloading and unzipping data from Unfallatlas
+download.file(url = "https://unfallatlas.statistikportal.de/app/UnfalldatenDownload/Unfallorte2017_LinRef_Shapefile.zip", destfile = "temp.zip")
+unzip("temp.zip", exdir = "./data/raw/")
+file.remove("temp.zip")
+
+# read accidents
+unfaelle_2017 = st_read("data/raw/Shapefile/Unfallorte2017_LinRef.shp", quiet = T) %>% st_set_crs(25832)
+
+data_OSM_filtered = data_OSM_filtered %>% 
+	st_transform(25832) %>%
+	mutate(length = as.double(st_length(.)))
+
+unfaelle_2017 = unfaelle_2017 %>% 
+	# find our which autobahn is closest by
+	mutate(nearest_autobahn_id = st_nearest_feature(st_zm(.), data_OSM_filtered)) %>% 
+	# calculate distance to closest autobahn
+	mutate(nearest_autobahn_distance = st_distance(st_zm(.), data_OSM_filtered[nearest_autobahn_id, ], by_element = TRUE))
+
+# keep only accidents with a max distance of 10 meters to next Autobahn line
+unfaelle_2017_autobahn = unfaelle_2017 %>% 
+	filter(as.double(nearest_autobahn_distance) <= 10) 
+
+# adding Autobahn metadata to each accident
+autobahnen_meta = data_OSM_filtered %>% 
+	as_data_frame() %>% 
+	select(-geometry) %>% 
+	mutate(rownumber = row_number())
+
+unfaelle_2017_autobahn = unfaelle_2017_autobahn %>% 
+	left_join(autobahnen_meta, by = c("nearest_autobahn_id" = "rownumber"))
+
+st_write(unfaelle_2017_autobahn, "data/processed/unfaelle_2017_autobahn.gpkg", update = T, layer_options = "OVERWRITE=YES")
+```
+
+
+
+# Verkehrsdichte
+Code spielt an jeden Autobahnabschnitt Daten aus der automatischen Verkehrszähung sowie Angaben zu Anzahl und Schwere der Unfälle auf dem Abschnitt.
+Das Ergebnis der Operation wird unter "/data/processed/unfaelle_pro_abschnitt.csv" abgelegt.
+```{r}
+# read traffic monitoring data
+traffic_2017 = read_delim("data/raw/verkehrszaehlung_2017.csv", ";", escape_double = FALSE, locale = locale(encoding = "ISO-8859-1", decimal_mark = ","), 
+    trim_ws = TRUE) %>% 
+	filter(Str_Kl == "A") %>% 
+	select(DZ_Nr, DZ_Name, Str_Nr, daily = DTV_Kfz_MobisSo_Q, hourly_day = Mt, hourly_night = Mn, long = Koor_UTM32_E, lat = Koor_UTM32_N) %>% 
+	st_as_sf(coords = c("long", "lat"), crs = 25832) %>% 
+	filter(!is.na(daily)) %>% 
+	mutate(rownumber = row_number())
+
+# mask of Bundesländer that reported accidents
+mask_2017 = st_read("data/raw/VG250_LAN.shp", quiet = T) %>% 
+	filter(GF == 4) %>%
+	filter(!SN_L %in% c("05", "11", "13", "16")) %>% 
+	st_set_crs(25832) %>% 
+	ms_simplify(keep = 0.02) %>% 
+	select(geometry)
+
+# find out which Zählstelle is closest by
+closest_count_location = data_OSM_filtered %>% 
+	# keeping only sections in bundesländer where we have data on accidents
+	st_intersection(mask_2017) %>%
+	mutate(nearest_counter_id = st_nearest_feature(st_zm(.), traffic_2017))
+
+# adding traffic data to each autobahn section
+autobahnen_meta_verkehr = closest_count_location %>% 
+	as_data_frame() %>% 
+	select(-geometry) %>%
+	left_join(traffic_2017, by = c("nearest_counter_id" = "rownumber"))
+
+# counting accidents per autobahn section
+autobahnen_accident_count = unfaelle_2017_autobahn %>% 
+	as_data_frame() %>% 
+	select(-geometry) %>% 
+	count(osm_id, UKATEGORIE) %>% 
+	spread(UKATEGORIE, n) %>%
+	rename(tödlich = `1`, schwerverletzt = `2`, leichtverletzt = `3`)
+
+autobahnen_meta_verkehr_unfaelle = autobahnen_meta_verkehr %>% 
+	left_join(autobahnen_accident_count, by = "osm_id") %>%
+	mutate(yearly_km_in_section = daily / 2 * 365 * length / 1000) %>%
+	select(-geometry)
+
+write.csv(autobahnen_meta_verkehr_unfaelle, "data/processed/unfaelle_pro_abschnitt.csv", row.names = F)
+```
+
+
+

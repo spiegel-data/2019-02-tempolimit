@@ -1,0 +1,51 @@
+﻿
+Unfallart (Feld "UART")
+1 = Zusammenstoß mit anfahrendem/anhaltendem/ruhendem Fahrzeug
+2 = Zusammenstoß mit vorausfahrendem/wartendem Fahrzeug
+3 = Zusammenstoß mit seitlich in gleicher Richtung fahrendem Fahrzeug
+4 = Zusammenstoß mit entgegenkommendem Fahrzeug
+5 = Zusammenstoß mit einbiegendem / kreuzendem Fahrzeug
+6 = Zusammenstoß zwischen Fahrzeug und Fußgänger
+7 = Aufprall auf Fahrbahnhindernis
+8 = Abkommen von Fahrbahn nach rechts
+9 = Abkommen von Fahrbahn nach links
+0 = Unfall anderer Art
+
+Unfallkategorie (Feld "UKATEGORIE")
+1 = Unfall mit Getöteten
+2 = Unfall mit Schwerverletzten
+3 = Unfall mit Leichtverletzten
+
+Unfalltyp (Feld "UTYP" bzw. "UTYP1")
+1 = Fahrunfall
+2 = Abbiegeunfall
+3 = Einbiegen / Kreuzen-Unfall
+4 = Überschreitenunfall
+5 = Unfall durch ruhenden Verkehr
+6 = Unfall im Längsverkehr
+7 = sonstiger Unfall
+
+Lichtverhältnisse (Feld "LICHT"):
+0 = Tageslicht
+1 = Dämmerung
+2 = Dunkelheit
+
+Straßenzustand (Feld "STRZUSTAND"):
+0 = trocken
+1 = nass/feucht/schlüpfrig
+2 = winterglatt
+
+Wochentag 
+1 = Sonntag
+2 = Montag
+3 = Dienstag
+4 = Mittwoch
+5 = Donnerstag
+6 = Freitag
+7 = Samstag
+
+
+Die in den Rohdaten enthaltenen Spalten ULAND, UREGBEZ, UKREIS, UGEMEINDE bilden den Amtlichen Gemeindeschlüssel ab. Die Kodierung ist hier abrufbar:
+https://www.destatis.de/DE/ZahlenFakten/LaenderRegionen/Regionales/Gemeindeverzeichnis/Administrativ/Archiv/GVAuszugQ/AuszugGV3QAktuell.html
+
+Die Werte in den Feldern LINREFX und LINREFY bilden die Koordinate des auf dem Straßenabschnitt liegenden Unfallortes (UTM-Koordinate des Referenzsystems ETRS89, Zone 32N).
