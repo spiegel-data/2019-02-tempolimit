@@ -54,7 +54,7 @@ st_write(data_OSM_filtered, "data/processed/OSM_autobahnnetz.geojson")
 # Unfalldaten
 Code zum Ermittlung der Unfälle, die auf Autobahnen stattgefunden haben.
 Das Ergebnis der Operation wird unter "/data/processed/unfaelle_2017_autobahn.gpkg" abgelegt.
-```{r eval = FALSE}
+```{r}
 # downloading and unzipping data from Unfallatlas
 download.file(url = "https://unfallatlas.statistikportal.de/app/UnfalldatenDownload/Unfallorte2017_LinRef_Shapefile.zip", destfile = "temp.zip")
 unzip("temp.zip", exdir = "./data/raw/")
