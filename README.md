@@ -3,20 +3,20 @@
 *Patrick Stotz, SPIEGEL ONLINE; Februar 2019*
 
 # Übersicht
-In diesem Repository sind die Daten und Berechnung zum Artikel "[ARTIKELTITEL EINFÜGEN](LINK EINFÜGEN)", erschienen am XX.02.2019 im SPIEGEL/bei SPIEGEL ONLINE, dokumentiert.
+In diesem Repository sind die Daten und Berechnung zum Artikel ["ARTIKELTITEL EINFÜGEN"](LINK EINFÜGEN), erschienen bei SPIEGEL ONLINE am 22.02.2019, dokumentiert.
 
 # Ergebnisse
-Unter [diesem Link](LINK EINFÜGEN) finden Sie alle Analyseergebnisse, die uns als Grundlage für den Artikel gedient haben.
+Unter [diesem Link](https://spiegel-data.github.io/2019-02-tempolimit/01_Auswertung.html) finden Sie alle Analyseergebnisse, die uns als Grundlage für den Artikel gedient haben.
 
 # Reproduzierbarkeit
 Die Verarbeitung und Analyse der Daten wurde in der Programmiersprache R durchgeführt.
 Der Analyseprozess kann durch Ausführen der Notebooks `00_Datenaufbereitung.Rmd` und `01_Auswertung.Rmd` nachvollzogen werden.
 
-Die Ausführung von `00_Datenaufbereitung.Rmd` ist dabei optional. Hier werden Rohdaten heruntergeladen und vorverarbeitet (Verarbeitungszeit ca. 20 Minuten).
+Die eigentliche Analyse findet dabei in  `01_Auswertung.Rmd` statt. Sämtliche hierfür notwendige Daten sind bereits im Verzeichnis  `data` hinterlegt.
 
-Alternativ kann auch direkt die eigentliche Analyse in `01_Auswertung.Rmd` ausgeführt werden. Sämtliche hierfür notwendige Daten sind im Repository hinterlegt.
+Die Ausführung von `00_Datenaufbereitung.Rmd` ist optional. Hierdruch werden die verwendeten Rohdaten erneut von der ursprünglichen Quelle heruntergeladen, aufbereitet (Verarbeitungszeit ca. 20 Minuten) und im Ordner `data/processed` abgelegt. Die dort bereits mitgelieferten Daten werden hierdurch überschreiben. 
 
-Folgende Packages und Versionen wurden verwendet:
+Folgende Packages und Versionen wurden in der Analyse verwendet:
 
 * R version 3.5.1
 * tidyverse 1.2.1
