@@ -200,7 +200,7 @@ accidents_per_mrd_without = accidents_per_type_with_traffic %>%
 
 ```{r}
 # Zahlen aus DESTATIS 2017, S. 23
-deaths_per_accident = 409 / 365
+deaths_per_accident = 409 / 356
 
 # Zahlen aus DESTATIS 2017, S. 6
 km_total_2017 = 246
