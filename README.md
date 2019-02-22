@@ -6,7 +6,7 @@
 In diesem Repository sind die Daten und Berechnung zum Artikel ["Tempolimit verhindert bis zu 140 Todesfälle im Jahr"](http://www.spiegel.de/artikel/a-1254504.html), erschienen bei SPIEGEL ONLINE am 23.02.2019, dokumentiert.
 
 # Ergebnisse
-Unter [diesem Link](https://spiegel-data.github.io/2019-02-tempolimit/01_Auswertung.html) finden Sie alle Analyseergebnisse, die uns als Grundlage für den Artikel gedient haben.
+Unter [diesem Link](https://spiegel-data.github.io/2019-02-tempolimit/01_Auswertung.html) finden Sie alle Analyseergebnisse, die als Grundlage für den Artikel gedient haben.
 
 # Reproduzierbarkeit
 Die Verarbeitung und Analyse der Daten wurde in der Programmiersprache R durchgeführt.
@@ -14,7 +14,7 @@ Der Analyseprozess kann durch Ausführen der Notebooks `00_Datenaufbereitung.Rmd
 
 Die eigentliche Analyse findet dabei in  `01_Auswertung.Rmd` statt. Sämtliche hierfür notwendige Daten sind bereits im Verzeichnis  `data` hinterlegt.
 
-Die Ausführung von `00_Datenaufbereitung.Rmd` ist optional. Hierdruch werden die verwendeten Rohdaten erneut von der ursprünglichen Quelle heruntergeladen, aufbereitet (Verarbeitungszeit ca. 20 Minuten) und im Ordner `data/processed` abgelegt. Die dort bereits mitgelieferten Daten werden hierdurch überschreiben. 
+Die Ausführung von `00_Datenaufbereitung.Rmd` ist optional. Hierdurch werden die verwendeten Rohdaten erneut von der ursprünglichen Quelle heruntergeladen, aufbereitet (Verarbeitungszeit ca. 20 Minuten) und im Ordner `data/processed` abgelegt. Die dort bereits mitgelieferten Daten werden hierdurch überschrieben. Durch zwischenzeitliche Änderungen an den OpenStreetMap-Geodaten können sich im Lauf der Zeit Abweichungen bei den Analyseergebnissen ergeben.
 
 Folgende Packages und Versionen wurden in der Analyse verwendet:
 
