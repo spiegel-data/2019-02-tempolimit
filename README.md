@@ -3,7 +3,7 @@
 *Patrick Stotz, SPIEGEL ONLINE; Februar 2019*
 
 # Übersicht
-In diesem Repository sind die Daten und Berechnung zum Artikel ["ARTIKELTITEL EINFÜGEN"](LINK EINFÜGEN), erschienen bei SPIEGEL ONLINE am 22.02.2019, dokumentiert.
+In diesem Repository sind die Daten und Berechnung zum Artikel ["Tempolimit verhindert bis zu 140 Todesfälle im Jahr"](http://www.spiegel.de/artikel/a-1254504.html), erschienen bei SPIEGEL ONLINE am 23.02.2019, dokumentiert.
 
 # Ergebnisse
 Unter [diesem Link](https://spiegel-data.github.io/2019-02-tempolimit/01_Auswertung.html) finden Sie alle Analyseergebnisse, die uns als Grundlage für den Artikel gedient haben.
