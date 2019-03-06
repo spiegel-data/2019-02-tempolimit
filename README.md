@@ -29,5 +29,8 @@ Folgende Packages und Versionen wurden in der Analyse verwendet:
 * Unfalldaten: Quelle: [Unfallatlas der statistischen Ämter des Bundes und der Länder 2017](https://unfallatlas.statistikportal.de/_opendata.html).
 * Verkehrsdichte: [automatische Verkehrszählung der bast 2017](https://www.bast.de/BASt_2017/DE/Verkehrstechnik/Fachthemen/v2-verkehrszaehlung/Aktuell/zaehl_aktuell_node.html).
 
+# Lizenz
+<a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons Lizenzvertrag" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a><br />Dieses Werk ist lizenziert unter einer <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Namensnennung - Weitergabe unter gleichen Bedingungen 4.0 International Lizenz</a>.
+
 # Kontakt
 Bei Fragen wenden Sie sich bitte an patrick.stotz(at)spiegel.de oder an [@SPIEGEL_Data](https://twitter.com/SPIEGEL_Data).
