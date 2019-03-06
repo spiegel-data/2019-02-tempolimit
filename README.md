@@ -22,7 +22,6 @@ Folgende Packages und Versionen wurden in der Analyse verwendet:
 * tidyverse 1.2.1
 * sf 0.7-2
 * osmdata 0.0.8
-* rmapshaper 0.4.1
 
 # Datenquellen
 * Geodaten Autobahnnetz: Quelle: OpenStreeMap (OSM), Stand: 18.02.2019. © OpenStreetMap-Mitwirkende.

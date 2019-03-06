@@ -11,7 +11,7 @@ output:
 # library(needs)
 
 # packages used in this markdown document
-needs(tidyverse, sf, osmdata, rmapshaper)
+needs(tidyverse, sf, osmdata)
 ```
 
 
@@ -35,11 +35,13 @@ data_OSM_filtered = data_OSM_lines %>%
 	mutate_if(is.factor, as.character) %>%
 	select(osm_id, ref, name, network, operator, FIXME, maxspeed, maxspeed.variable, maxspeed.type.conditional, temporary.maxspeed, lanes)
 
-# clip by simplified bounding box
-bb_GER_polygon = st_read("data/raw/VG250_STA.shp") %>%
- 	filter(GF == 4) %>%
+# clip by admin boundaries
+bb_GER_polygon = st_read("data/raw/vg2500_sta.shp") %>%
+	# calculate size and keep only biggest polygon (=land mass)
+	mutate(size = st_area(.)) %>% 
+	top_n(1, size) %>% 
  	st_transform(4326) %>%
- 	ms_simplify(keep = 0.01)
+	select(geometry)
 
 data_OSM_filtered = data_OSM_filtered %>%
 	st_intersection(bb_GER_polygon) %>%
@@ -105,11 +107,9 @@ traffic_2017 = read_delim("data/raw/verkehrszaehlung_2017.csv", ";", escape_doub
 	mutate(rownumber = row_number())
 
 # mask of Bundesländer that reported accidents
-mask_2017 = st_read("data/raw/VG250_LAN.shp", quiet = T) %>% 
-	filter(GF == 4) %>%
-	filter(!SN_L %in% c("05", "11", "13", "16")) %>% 
-	st_set_crs(25832) %>% 
-	ms_simplify(keep = 0.02) %>% 
+mask_2017 = st_read("data/raw/VG2500_LAN.shp", quiet = T) %>% 
+	filter(!RS %in% c("05", "11", "13", "16")) %>% 
+	st_set_crs(25832) %>%
 	select(geometry)
 
 # find out which Zählstelle is closest by
