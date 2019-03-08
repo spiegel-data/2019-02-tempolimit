@@ -107,7 +107,7 @@ traffic_2017 = read_delim("data/raw/verkehrszaehlung_2017.csv", ";", escape_doub
 	mutate(rownumber = row_number())
 
 # mask of Bundesländer that reported accidents
-mask_2017 = st_read("data/raw/VG2500_LAN.shp", quiet = T) %>% 
+mask_2017 = st_read("data/raw/vg2500_lan.shp", quiet = T) %>% 
 	filter(!RS %in% c("05", "11", "13", "16")) %>% 
 	st_set_crs(25832) %>%
 	select(geometry)
